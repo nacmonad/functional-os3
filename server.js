@@ -108,7 +108,6 @@ var initDb = function(callback) {
       callback(err);
       return;
     }
-
     db = conn;
     dbDetails.databaseName = db.databaseName;
     dbDetails.url = mongoURLLabel;
@@ -333,6 +332,74 @@ apiRoutes.get('/time', function (req,res) {
 });
 
 //AUTH
+//AUTH Express Setup
+var authRoutes = express.Router();
+app.use('/auth', authRoutes);
+
+//AUTH Routes
+authRoutes.get('/', function (req,res) {
+		res.render(__dirname+'/partials/crudindex.html');
+	});
+
+authRoutes.get('/register', function (req,res) {
+		res.render(__dirname+'/partials/crudregister.html', { csrfToken: req.csrfToken()});
+	});
+
+authRoutes.get('/login', function (req,res) {
+		res.render(__dirname+'/partials/crudlogin.html', { csrfToken: req.csrfToken()});
+	});
+authRoutes.get('/dashboard', requireLogin, function (req,res) {
+		res.render(__dirname+'/partials/cruddashboard.html', { csrfToken: req.csrfToken()});
+	});
+
+authRoutes.post('/login', function(req,res){
+		console.log(req.body);
+	User.findOne({ email:req.body.email }, function(err,user) {
+		if (!user) {
+			res.render(__dirname+'/partials/crudlogin.html', {error:"Invalid email or password.", csrfToken: req.csrfToken()});
+		} else
+		{
+			if (bcrypt.compareSync(req.body.password, user.password)) {
+				req.session.user = user;  // set-cookie
+				res.redirect('/auth/dashboard');
+			} else
+			{
+				res.render(__dirname+'/partials/crudlogin.html', {error:"Invalid email or password.", csrfToken: req.csrfToken()});
+			}
+		}
+	})
+
+});
+
+authRoutes.post('/register', function(req,res){
+	var hash = bcrypt.hashSync(req.body.password, bcrypt.genSaltSync(10));
+	//res.json(req.body);
+
+	var newUser = new User({
+		firstName : req.body.firstName,
+		lastName : req.body.lastName,
+		email : req.body.email,
+		password : hash
+	});
+
+	newUser.save(function (err,user){
+		if (err) {
+			var err= "herb derp something bad happened, try again";
+			if (err.code === 11000){
+				err = "sorry that email is already taken";
+			}
+			res.render(__dirname+'/partials/crudregister.html', { error: err, csrfToken: req.csrfToken()} );
+		}
+		else {
+				res.redirect('/auth/dashboard');
+			}
+	});
+});
+
+authRoutes.get('/logout', function(req,res){
+		req.session.reset();
+		res.redirect('/auth/');
+	});
 
 
 
